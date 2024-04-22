@@ -20,6 +20,7 @@ import java.util.Map;
 
 import com.datastax.ai.agent.base.AiAgent;
 import com.datastax.ai.agent.history.AiAgentSession;
+import com.datastax.ai.agent.vector.AiAgentVector;
 import com.datastax.oss.driver.api.core.CqlSession;
 
 import com.vaadin.flow.component.messages.MessageInput;
@@ -34,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatResponse;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.vectorstore.CassandraVectorStore;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.cassandra.CassandraAutoConfiguration;
@@ -54,8 +56,10 @@ public class AiApplication implements AppShellConfigurator {
     @Route("")
     static class AiChatUI extends VerticalLayout {
 
-        public AiChatUI(AiAgent agent, CqlSession cqlSession) {
-            AiAgentSession session = AiAgentSession.create(agent, cqlSession);
+        public AiChatUI(AiAgent baseAgent, CqlSession cqlSession, CassandraVectorStore store) {
+
+            AiAgentSession sessionAgent = AiAgentSession.create(baseAgent, cqlSession);
+            AiAgentVector agent = AiAgentVector.create(sessionAgent, store);
 
             var messageList = new VerticalLayout();
             var messageInput = new MessageInput();
@@ -67,9 +71,9 @@ public class AiApplication implements AppShellConfigurator {
 
                 messageList.add(userMessage, assistantMessage);
 
-                Prompt prompt = session.createPrompt(new UserMessage(question), Map.of());
+                Prompt prompt = agent.createPrompt(new UserMessage(question), Map.of());
 
-                session.send(prompt)
+                agent.send(prompt)
                         .subscribe((response) -> {
                             if (isValidResponse(response)) {
                                 if (null != response.getResult().getOutput().getContent()) {
